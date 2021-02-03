@@ -71,9 +71,17 @@ class Bullet(pygame.sprite.Sprite):
             self.enemies = player_team
 
     def update(self):
-        x, y = self.rect.x, self.rect.y
         dir_x, dir_y = convert_dir_to_x_y(self.direction)
         self.rect = self.rect.move(self.velocity * dir_x, self.velocity * dir_y)
+        if pygame.sprite.spritecollideany(self, self.enemies):
+            pass
+        elif pygame.sprite.spritecollideany(self, breakable_group):
+            killed = pygame.sprite.spritecollide(self, breakable_group, False)[0]
+            killed.kill()
+            self.kill()
+            Tile('empty', killed.rect.x // tile_width, killed.rect.y // tile_height)
+        elif pygame.sprite.spritecollideany(self, collidable_group):
+            self.kill()
 
 
 class Player(pygame.sprite.Sprite):
