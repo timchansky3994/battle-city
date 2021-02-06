@@ -74,14 +74,36 @@ class Bullet(pg.sprite.Sprite):
             Tile('empty', killed.rect.x // tile_width, killed.rect.y // tile_height)
         elif pg.sprite.spritecollideany(self, collidable_group):
             self.kill()
+            SmallExplosion(self.rect.center)
 
 
-class BaseTank(pg.sprite.Sprite):
-    def __init__(self, pos_x, pos_y, image, *aux_groups):
-        super().__init__(top_layer_group, all_sprites, *aux_groups)
-        self.image = image
+
+class AnimatedSprite(pg.sprite.Sprite):
+    def __init__(self, x, y, sheet, columns, rows, *aux_groups):
+        super().__init__(all_sprites, *aux_groups)
+        self.frames = []
+        self.cut_sheet(sheet, columns, rows)
+        self.cur_frame = 0
+        self.image = self.frames[self.cur_frame]
+        self.rect = self.rect.move(x, y)
+
+    def cut_sheet(self, sheet, columns, rows):
+        self.rect = pg.Rect(0, 0, sheet.get_width() // columns, sheet.get_height() // rows)
+        for j in range(rows):
+            for i in range(columns):
+                frame_location = (self.rect.w * i, self.rect.h * j)
+                self.frames.append(sheet.subsurface(pg.Rect(frame_location, self.rect.size)))
+
+    def update(self):
+        self.cur_frame = (self.cur_frame + 1) % len(self.frames)
+        self.image = self.frames[self.cur_frame]
+
+
+class BaseTank(AnimatedSprite):
+    def __init__(self, pos_x, pos_y, sheet, columns, rows, *aux_groups):
+        super().__init__(tile_width * pos_x + 1, tile_height * pos_y + 1, sheet, columns, rows,
+                         top_layer_group, *aux_groups)
         self.direction = NORTH
-        self.rect = self.image.get_rect().move(tile_width * pos_x + 1, tile_height * pos_y + 1)
         self.cooldown_duration = 750
         self.cooldown_start = -self.cooldown_duration
 
@@ -97,38 +119,72 @@ class BaseTank(pg.sprite.Sprite):
     def set_cooldown(self, cooldown):
         self.cooldown_duration = cooldown
 
+    def kill(self):
+        super().kill()
+        Explosion(self.rect.center)
+
 
 class Player(BaseTank):
     def __init__(self, pos_x, pos_y):
-        super().__init__(pos_x, pos_y, player_image, player_team)
+        super().__init__(pos_x, pos_y, player_sheet, 11, 1, player_team)
+        self.count = 0
 
     def update(self, dx, dy, direction):
+        self.count += 1
+        if self.count % 4 == 0:
+            super().update()
         self.rect = self.rect.move(dx, dy)
-        if direction != self.direction:
-            self.direction = direction
-            self.image = pg.transform.rotate(player_image, -90 * self.direction)
+        self.direction = direction
+        self.image = pg.transform.rotate(self.frames[self.cur_frame], -90 * self.direction)
         if pg.sprite.spritecollideany(self, collidable_group) or pg.sprite.spritecollideany(self, enemy_team):
             self.rect = self.rect.move(-dx, -dy)
 
 
 class Enemy(BaseTank):
     def __init__(self, pos_x, pos_y):
-        super().__init__(pos_x, pos_y, enemy_image, enemy_team)
+        super().__init__(pos_x, pos_y, enemy_sheet, 11, 1, enemy_team)
+        self.count = 0
 
     def update(self):
+        if pg.time.get_ticks() % 4 == 0:
+            super().update()
         # при столкновении со стеной поворачивается в случайную сторону
-        if random.random() < 1 / 3 / FPS:  # с шансом 15% каждую секунду поворачивает
+        if random.random() < 0.2 / FPS:  # с шансом 20% каждую секунду поворачивает
             self.direction = random.choice(list({0, 1, 2, 3} - {self.direction}))
-            self.image = pg.transform.rotate(enemy_image, -90 * self.direction)
         dir_x, dir_y = convert_dir_to_x_y(self.direction)
         self.rect = self.rect.move(dir_x, dir_y)
+        self.image = pg.transform.rotate(self.frames[self.cur_frame], -90 * self.direction)
         if pg.sprite.spritecollideany(self, collidable_group) or pg.sprite.spritecollideany(self, player_team):
             self.rect = self.rect.move(-dir_x, -dir_y)
             self.direction = random.randrange(0, 4)
-            self.image = pg.transform.rotate(enemy_image, -90 * self.direction)
+            self.image = pg.transform.rotate(self.frames[self.cur_frame], -90 * self.direction)
             # self.rect = self.rect.move(dir_x, dir_y)
-        if random.random() < 0.5 / FPS:  # с шансом 40% каждую секунду стреляет
+        if random.random() < 0.5 / FPS:  # с шансом 50% каждую секунду стреляет
             self.shoot()
+
+
+class Explosion(AnimatedSprite):
+    def __init__(self, center):
+        super().__init__(0, 0, explosion_sheet, 11, 1, top_layer_group, effects_group)
+        self.rect.center = center
+
+    def update(self):
+        if pg.time.get_ticks() % 5 == 0:
+            super().update()
+            if self.cur_frame == 0:
+                self.kill()  # при конце анимации умирает
+
+
+class SmallExplosion(AnimatedSprite):
+    def __init__(self, center):
+        super().__init__(0, 0, small_explosion_sheet, 8, 1, top_layer_group, effects_group)
+        self.rect.center = center
+
+    def update(self):
+        if pg.time.get_ticks() % 5 == 0:
+            super().update()
+            if self.cur_frame == 0:
+                self.kill()  # при конце анимации умирает
 
 
 # class Camera:
@@ -185,8 +241,10 @@ tile_images = {
     'bricks': load_image('bricks.png'),
     'block': load_image('block.png'),
     'empty': load_image('ground.png')}
-player_image = load_image('player_tank.png')
-enemy_image = load_image('enemy_tank.png')
+player_sheet = load_image('player_tank.png')
+enemy_sheet = load_image('enemy_tank.png')
+explosion_sheet = load_image('explosion.png')
+small_explosion_sheet = load_image('small_explosion.png')
 bullet_image = load_image('bullet.png')
 tile_width = tile_height = 32
 all_sprites = pg.sprite.Group()
@@ -195,6 +253,7 @@ tiles_group = pg.sprite.Group()
 collidable_group = pg.sprite.Group()
 breakable_group = pg.sprite.Group()
 bullet_group = pg.sprite.Group()
+effects_group = pg.sprite.Group()
 player_team = pg.sprite.Group()
 enemy_team = pg.sprite.Group()
 player, level_x, level_y = generate_level(load_level('map0.txt'))
@@ -226,6 +285,7 @@ while running:
     # for sprite in all_sprites:
     #     camera.apply(sprite)
     bullet_group.update()
+    effects_group.update()
     enemy_team.update()
     tiles_group.draw(screen)
     top_layer_group.draw(screen)
