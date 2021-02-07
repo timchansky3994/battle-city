@@ -77,15 +77,16 @@ class Bullet(pg.sprite.Sprite):
             SmallExplosion(self.rect.center)
 
 
-
 class AnimatedSprite(pg.sprite.Sprite):
-    def __init__(self, x, y, sheet, columns, rows, *aux_groups):
+    def __init__(self, x, y, sheet, columns, rows, framerate, *aux_groups):
         super().__init__(all_sprites, *aux_groups)
         self.frames = []
         self.cut_sheet(sheet, columns, rows)
         self.cur_frame = 0
         self.image = self.frames[self.cur_frame]
         self.rect = self.rect.move(x, y)
+        self.framerate = framerate
+        self.iteration = 0
 
     def cut_sheet(self, sheet, columns, rows):
         self.rect = pg.Rect(0, 0, sheet.get_width() // columns, sheet.get_height() // rows)
@@ -95,14 +96,16 @@ class AnimatedSprite(pg.sprite.Sprite):
                 self.frames.append(sheet.subsurface(pg.Rect(frame_location, self.rect.size)))
 
     def update(self):
-        self.cur_frame = (self.cur_frame + 1) % len(self.frames)
-        self.image = self.frames[self.cur_frame]
+        self.iteration += 1
+        if self.iteration % (FPS // self.framerate) == 0:
+            self.cur_frame = (self.cur_frame + 1) % len(self.frames)
+            self.image = self.frames[self.cur_frame]
 
 
 class BaseTank(AnimatedSprite):
-    def __init__(self, pos_x, pos_y, sheet, columns, rows, *aux_groups):
-        super().__init__(tile_width * pos_x + 1, tile_height * pos_y + 1, sheet, columns, rows,
-                         top_layer_group, *aux_groups)
+    def __init__(self, pos_x, pos_y, sheet, columns, rows, framerate, *aux_groups):
+        super().__init__(tile_width * pos_x + 1, tile_height * pos_y + 1,
+                         sheet, columns, rows, framerate, top_layer_group, *aux_groups)
         self.direction = NORTH
         self.cooldown_duration = 750
         self.cooldown_start = -self.cooldown_duration
@@ -126,13 +129,10 @@ class BaseTank(AnimatedSprite):
 
 class Player(BaseTank):
     def __init__(self, pos_x, pos_y):
-        super().__init__(pos_x, pos_y, player_sheet, 11, 1, player_team)
-        self.count = 0
+        super().__init__(pos_x, pos_y, player_sheet, 11, 1, 10, player_team)
 
     def update(self, dx, dy, direction):
-        self.count += 1
-        if self.count % 4 == 0:
-            super().update()
+        super().update()
         self.rect = self.rect.move(dx, dy)
         self.direction = direction
         self.image = pg.transform.rotate(self.frames[self.cur_frame], -90 * self.direction)
@@ -142,12 +142,10 @@ class Player(BaseTank):
 
 class Enemy(BaseTank):
     def __init__(self, pos_x, pos_y):
-        super().__init__(pos_x, pos_y, enemy_sheet, 11, 1, enemy_team)
-        self.count = 0
+        super().__init__(pos_x, pos_y, enemy_sheet, 11, 1, 10, enemy_team)
 
     def update(self):
-        if pg.time.get_ticks() % 4 == 0:
-            super().update()
+        super().update()
         # при столкновении со стеной поворачивается в случайную сторону
         if random.random() < 0.2 / FPS:  # с шансом 20% каждую секунду поворачивает
             self.direction = random.choice(list({0, 1, 2, 3} - {self.direction}))
@@ -165,26 +163,24 @@ class Enemy(BaseTank):
 
 class Explosion(AnimatedSprite):
     def __init__(self, center):
-        super().__init__(0, 0, explosion_sheet, 11, 1, top_layer_group, effects_group)
+        super().__init__(0, 0, explosion_sheet, 11, 1, 20, top_layer_group, effects_group)
         self.rect.center = center
 
     def update(self):
-        if pg.time.get_ticks() % 5 == 0:
-            super().update()
-            if self.cur_frame == 0:
-                self.kill()  # при конце анимации умирает
+        super().update()
+        if self.iteration == len(self.frames) * (FPS // self.framerate):
+            self.kill()  # при конце анимации умирает
 
 
 class SmallExplosion(AnimatedSprite):
     def __init__(self, center):
-        super().__init__(0, 0, small_explosion_sheet, 8, 1, top_layer_group, effects_group)
+        super().__init__(0, 0, small_explosion_sheet, 8, 1, 20, top_layer_group, effects_group)
         self.rect.center = center
 
     def update(self):
-        if pg.time.get_ticks() % 5 == 0:
-            super().update()
-            if self.cur_frame == 0:
-                self.kill()  # при конце анимации умирает
+        super().update()
+        if self.iteration == len(self.frames) * (FPS // self.framerate):
+            self.kill()  # при конце анимации умирает
 
 
 # class Camera:
