@@ -111,13 +111,14 @@ class BaseTank(AnimatedSprite):
         self.cooldown_start = -self.cooldown_duration
 
     def shoot(self):
-        if pg.time.get_ticks() - self.cooldown_start >= self.cooldown_duration:
-            dir_x, dir_y = convert_dir_to_x_y(self.direction)
-            bullet_radius = max(bullet_image.get_width(), bullet_image.get_height()) // 2
-            Bullet(self.rect.x + self.rect.width // 2 * (1 + dir_x) + bullet_radius * dir_x,
-                   self.rect.y + self.rect.height // 2 * (1 + dir_y) + bullet_radius * dir_y,
-                   self.__class__.__name__, self.direction)
-            self.cooldown_start = pg.time.get_ticks()
+        if self.alive():
+            if pg.time.get_ticks() - self.cooldown_start >= self.cooldown_duration:
+                dir_x, dir_y = convert_dir_to_x_y(self.direction)
+                bullet_radius = max(bullet_image.get_width(), bullet_image.get_height()) // 2
+                Bullet(self.rect.x + self.rect.width // 2 * (1 + dir_x) + bullet_radius * dir_x,
+                       self.rect.y + self.rect.height // 2 * (1 + dir_y) + bullet_radius * dir_y,
+                       self.__class__.__name__, self.direction)
+                self.cooldown_start = pg.time.get_ticks()
 
     def set_cooldown(self, cooldown):
         self.cooldown_duration = cooldown
@@ -130,6 +131,7 @@ class BaseTank(AnimatedSprite):
 class Player(BaseTank):
     def __init__(self, pos_x, pos_y):
         super().__init__(pos_x, pos_y, player_sheet, 11, 1, 10, player_team)
+        self.spawning_effect = None
 
     def update(self, dx, dy, direction):
         super().update()
@@ -139,26 +141,72 @@ class Player(BaseTank):
         if pg.sprite.spritecollideany(self, collidable_group) or pg.sprite.spritecollideany(self, enemy_team):
             self.rect = self.rect.move(-dx, -dy)
 
+    def kill(self):
+        super().kill()
+        global player_lives
+        player_lives -= 1
+        if player_lives > 0:
+            self.spawning_effect = SpawningEffect(tuple(map(lambda a: a * tile_width + 1, spawn_point)))
+            pg.time.set_timer(PLAYER_RESPAWN, 5000, True)
+        else:
+            pass
+
+    def respawn(self):
+        self.rect.x, self.rect.y = map(lambda a: a * tile_width + 1, spawn_point)
+        self.direction = NORTH
+        self.spawning_effect.kill()
+        self.add(all_sprites, top_layer_group, player_team)
+
 
 class Enemy(BaseTank):
-    def __init__(self, pos_x, pos_y):
+    def __init__(self, pos_x, pos_y, velocity=1):
         super().__init__(pos_x, pos_y, enemy_sheet, 11, 1, 10, enemy_team)
+        self.velocity = velocity
+        self.dir_lock_start = -3000
+        self.shoot_chance = 0.5
 
     def update(self):
         super().update()
-        # при столкновении со стеной поворачивается в случайную сторону
-        if random.random() < 0.2 / FPS:  # с шансом 20% каждую секунду поворачивает
-            self.direction = random.choice(list({0, 1, 2, 3} - {self.direction}))
+        if self.rect.x % tile_width == 0 or self.rect.y % tile_height == 0:
+            # ищем игрока; смотрит по всем сторонам когда по центру тайла; поле зрения - 5 тайлов
+            for i in range(0, 4):
+                ray = Ray(self.rect.center, self.rect.width, 5 * tile_width, (self.direction + i) % 4)
+                if pg.sprite.spritecollideany(ray, aggressive_mode_check):
+                    if pg.sprite.spritecollide(ray, aggressive_mode_check, False)[0] == player:
+                        if random.random() < 0.8 / FPS:  # если нашли то с шансом 80% в сек движемся к игроку 3 секунды
+                            self.direction = (self.direction + i) % 4
+                            self.dir_lock_start = pg.time.get_ticks()
+                            self.shoot_chance += 0.25
+                            break
+
         dir_x, dir_y = convert_dir_to_x_y(self.direction)
-        self.rect = self.rect.move(dir_x, dir_y)
+        self.rect = self.rect.move(dir_x * self.velocity, dir_y * self.velocity)
         self.image = pg.transform.rotate(self.frames[self.cur_frame], -90 * self.direction)
-        if pg.sprite.spritecollideany(self, collidable_group) or pg.sprite.spritecollideany(self, player_team):
-            self.rect = self.rect.move(-dir_x, -dir_y)
-            self.direction = random.randrange(0, 4)
-            self.image = pg.transform.rotate(self.frames[self.cur_frame], -90 * self.direction)
-            # self.rect = self.rect.move(dir_x, dir_y)
-        if random.random() < 0.5 / FPS:  # с шансом 50% каждую секунду стреляет
+
+        if self.dir_lock_start + 3000 < pg.time.get_ticks():
+            if random.random() < 0.2 / FPS:  # с шансом 20% каждую секунду поворачивает
+                self.direction = random.choice(list({0, 1, 2, 3} - {self.direction}))
+
+        # при столкновении со стеной поворачивается в случайную сторону
+        if pg.sprite.spritecollideany(self, collidable_group) or pg.sprite.spritecollideany(self, player_team) or \
+                len(pg.sprite.spritecollide(self, enemy_team, False)) > 1:
+            self.rect = self.rect.move(-dir_x * self.velocity, -dir_y * self.velocity)
+            if self.dir_lock_start + 3000 < pg.time.get_ticks():
+                self.direction = random.randrange(0, 4)
+                self.image = pg.transform.rotate(self.frames[self.cur_frame], -90 * self.direction)
+        if random.random() < self.shoot_chance / FPS:  # с шансом 50% каждую секунду стреляет
             self.shoot()
+
+
+class Ray(pg.sprite.Sprite):
+    def __init__(self, center, width, length, direction):
+        super().__init__()
+        self.direction = direction
+        dir_x, dir_y = convert_dir_to_x_y(direction)
+        if dir_y == 0:
+            width, length = length, width
+        self.rect = pg.Rect(0, 0, width, length)
+        self.rect.center = center[0] + width / 2 * dir_x, center[1] + length / 2 * dir_y
 
 
 class Explosion(AnimatedSprite):
@@ -181,6 +229,12 @@ class SmallExplosion(AnimatedSprite):
         super().update()
         if self.iteration == len(self.frames) * (FPS // self.framerate):
             self.kill()  # при конце анимации умирает
+
+
+class SpawningEffect(AnimatedSprite):
+    def __init__(self, coords):
+        super().__init__(coords[0], coords[1], spawning_eff_sheet, 2, 1, 4,
+                         top_layer_group, effects_group, collidable_group)
 
 
 # class Camera:
@@ -224,13 +278,14 @@ def generate_level(level):
                 Tile('bricks', x, y)
             elif level[y][x] == 'X':
                 Tile('block', x, y)
+            elif level[y][x] == 'E':
+                Tile('empty', x, y)
+                Enemy(x, y)
             elif level[y][x] == '@':
                 Tile('empty', x, y)
                 new_player = Player(x, y)
-            elif level[y][x] == 'E':
-                Tile('empty', x, y)
-                new_player = Enemy(x, y)
-    return new_player, x, y
+                spawn_point = (x, y)
+    return new_player, x, y, spawn_point
 
 
 tile_images = {
@@ -241,6 +296,7 @@ player_sheet = load_image('player_tank.png')
 enemy_sheet = load_image('enemy_tank.png')
 explosion_sheet = load_image('explosion.png')
 small_explosion_sheet = load_image('small_explosion.png')
+spawning_eff_sheet = load_image('spawning_effect.png')
 bullet_image = load_image('bullet.png')
 tile_width = tile_height = 32
 all_sprites = pg.sprite.Group()
@@ -252,10 +308,15 @@ bullet_group = pg.sprite.Group()
 effects_group = pg.sprite.Group()
 player_team = pg.sprite.Group()
 enemy_team = pg.sprite.Group()
-player, level_x, level_y = generate_level(load_level('map0.txt'))
+player, level_x, level_y, spawn_point = generate_level(load_level('map0.txt'))
+aggressive_mode_check = collidable_group.copy()
+aggressive_mode_check.add(player)
 pg.display.set_caption("Танчики")
 # camera = Camera((level_x, level_y))
 clock = pg.time.Clock()
+PLAYER_RESPAWN = pg.USEREVENT + 1
+player_respawn = pg.event.Event(PLAYER_RESPAWN)
+player_lives = 3
 running = True
 while running:
     for event in pg.event.get():
@@ -276,14 +337,16 @@ while running:
 
             if event.key == pg.K_e:
                 player.shoot()
+        if event.type == PLAYER_RESPAWN:
+            player.respawn()
     screen.fill('black')
     # camera.update(player)
     # for sprite in all_sprites:
     #     camera.apply(sprite)
     bullet_group.update()
     effects_group.update()
-    enemy_team.update()
     tiles_group.draw(screen)
+    enemy_team.update()
     top_layer_group.draw(screen)
     pg.display.flip()
     clock.tick(FPS)
