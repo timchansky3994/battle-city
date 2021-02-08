@@ -146,10 +146,10 @@ class Player(BaseTank):
         global player_lives
         player_lives -= 1
         if player_lives > 0:
-            self.spawning_effect = SpawningEffect(tuple(map(lambda a: a * tile_width + 1, spawn_point)))
+            self.spawning_effect = SpawningEffect(tuple(map(lambda a: a * tile_width + 1, spawn_point)), 5000)
             pg.time.set_timer(PLAYER_RESPAWN, 5000, True)
         else:
-            pass
+            pg.event.post(game_over)
 
     def respawn(self):
         self.rect.x, self.rect.y = map(lambda a: a * tile_width + 1, spawn_point)
@@ -173,7 +173,7 @@ class Enemy(BaseTank):
                 ray = Ray(self.rect.center, self.rect.width, 5 * tile_width, (self.direction + i) % 4)
                 if pg.sprite.spritecollideany(ray, aggressive_mode_check):
                     if pg.sprite.spritecollide(ray, aggressive_mode_check, False)[0] == player:
-                        if random.random() < 0.8 / FPS:  # если нашли то с шансом 80% в сек движемся к игроку 3 секунды
+                        if random.random() < 0.75 / FPS:  # если нашли то с шансом 75% в сек движемся к игроку 3 секунды
                             self.direction = (self.direction + i) % 4
                             self.dir_lock_start = pg.time.get_ticks()
                             self.shoot_chance += 0.25
@@ -232,9 +232,15 @@ class SmallExplosion(AnimatedSprite):
 
 
 class SpawningEffect(AnimatedSprite):
-    def __init__(self, coords):
+    def __init__(self, coords, duration):
         super().__init__(coords[0], coords[1], spawning_eff_sheet, 2, 1, 4,
                          top_layer_group, effects_group, collidable_group)
+        self.duration = duration
+
+    def update(self):
+        super().update()
+        if self.iteration == int(self.duration / 1000 * FPS):
+            self.kill()
 
 
 # class Camera:
@@ -280,13 +286,30 @@ def generate_level(level):
                 Tile('block', x, y)
             elif level[y][x] == 'E':
                 Tile('empty', x, y)
-                Enemy(x, y)
+                enemy_spawn_points.append((x, y))
             elif level[y][x] == '@':
                 Tile('empty', x, y)
                 new_player = Player(x, y)
                 spawn_point = (x, y)
     return new_player, x, y, spawn_point
 
+
+pg.display.set_caption("Танчики")
+
+enemy_count = 20
+enemy_respawn_time = 3100
+enemy_spawn_points = list()
+enemy_spawn_iteration = 0
+ENEMY_RESPAWN = pg.USEREVENT + 1
+enemy_respawn = pg.event.Event(ENEMY_RESPAWN)
+ENEMY_EFFECT_SPAWN = pg.USEREVENT + 2
+enemy_effect_spawn = pg.event.Event(ENEMY_EFFECT_SPAWN)
+PLAYER_RESPAWN = pg.USEREVENT + 3
+player_respawn = pg.event.Event(PLAYER_RESPAWN)
+GAME_OVER = pg.USEREVENT + 4
+game_over = pg.event.Event(GAME_OVER)
+player_lives = 3
+enemies_killed = 0
 
 tile_images = {
     'bricks': load_image('bricks.png'),
@@ -299,6 +322,7 @@ small_explosion_sheet = load_image('small_explosion.png')
 spawning_eff_sheet = load_image('spawning_effect.png')
 bullet_image = load_image('bullet.png')
 tile_width = tile_height = 32
+
 all_sprites = pg.sprite.Group()
 top_layer_group = pg.sprite.Group()
 tiles_group = pg.sprite.Group()
@@ -309,14 +333,12 @@ effects_group = pg.sprite.Group()
 player_team = pg.sprite.Group()
 enemy_team = pg.sprite.Group()
 player, level_x, level_y, spawn_point = generate_level(load_level('map0.txt'))
+
 aggressive_mode_check = collidable_group.copy()
 aggressive_mode_check.add(player)
-pg.display.set_caption("Танчики")
 # camera = Camera((level_x, level_y))
 clock = pg.time.Clock()
-PLAYER_RESPAWN = pg.USEREVENT + 1
-player_respawn = pg.event.Event(PLAYER_RESPAWN)
-player_lives = 3
+pg.time.set_timer(ENEMY_EFFECT_SPAWN, enemy_respawn_time, enemy_count)
 running = True
 while running:
     for event in pg.event.get():
@@ -339,6 +361,14 @@ while running:
                 player.shoot()
         if event.type == PLAYER_RESPAWN:
             player.respawn()
+        if event.type == ENEMY_EFFECT_SPAWN:
+            SpawningEffect(tuple(map(lambda a: a * tile_width + 1, enemy_spawn_points[enemy_spawn_iteration %
+                                                                                      len(enemy_spawn_points)])), 1000)
+            pg.time.set_timer(ENEMY_RESPAWN, 1000, True)
+        if event.type == ENEMY_RESPAWN:
+            pos = enemy_spawn_points[enemy_spawn_iteration % len(enemy_spawn_points)]
+            Enemy(pos[0], pos[1])
+            enemy_spawn_iteration += 1
     screen.fill('black')
     # camera.update(player)
     # for sprite in all_sprites:
