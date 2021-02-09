@@ -10,6 +10,8 @@ pg.init()
 size = WIDTH, HEIGHT = 800, 600
 screen = pg.display.set_mode(size)
 pg.key.set_repeat(10, 20)
+pg.display.set_caption("Танчики")
+clock = pg.time.Clock()
 
 
 def terminate():
@@ -35,6 +37,58 @@ def load_image(name, colorkey=None):
     else:
         image = image.convert_alpha()
     return image
+
+
+def main_menu():
+    intro_text = ["BATTLE CITY",
+                  "Начать игру",
+                  "Управление",
+                  "Выйти"]
+
+    print(pg.font.get_fonts())
+    logo_font = pg.font.Font("data/docktrin.ttf", 89)
+    text_font = pg.font.Font("data/rockwellnova.ttf", 36)
+
+    logo = logo_font.render(intro_text[0], True, pg.Color('white'))
+    logo_rect = logo.get_rect()
+    logo_rect.top = 80
+    logo_rect.center = WIDTH // 2, logo_rect.center[1]
+    screen.blit(logo, logo_rect)
+
+    start_game = text_font.render(intro_text[1], True, pg.Color('white'))
+    start_game_rect = start_game.get_rect()
+    start_game_rect.top = logo_rect.bottom + 25
+    start_game_rect.center = WIDTH // 2, start_game_rect.center[1]
+    screen.blit(start_game, start_game_rect)
+
+    options = text_font.render(intro_text[2], True, pg.Color('white'))
+    options_rect = options.get_rect()
+    options_rect.top = start_game_rect.bottom + 15
+    options_rect.center = WIDTH // 2, options_rect.center[1]
+    screen.blit(options, options_rect)
+
+    quit_btn = text_font.render(intro_text[3], True, pg.Color('white'))
+    quit_rect = quit_btn.get_rect()
+    quit_rect.top = options_rect.bottom + 15
+    quit_rect.center = WIDTH // 2, quit_rect.center[1]
+    screen.blit(quit_btn, quit_rect)
+
+    while True:
+        for event in pg.event.get():
+            if event.type == pg.QUIT:
+                terminate()
+            if event.type == pg.MOUSEBUTTONDOWN:
+                if start_game_rect.left <= event.pos[0] <= start_game_rect.right and \
+                        start_game_rect.top <= event.pos[1] <= start_game_rect.bottom:
+                    return
+                if options_rect.left <= event.pos[0] <= options_rect.right and \
+                        options_rect.top <= event.pos[1] <= options_rect.bottom:
+                    pass
+                if quit_rect.left <= event.pos[0] <= quit_rect.right and \
+                        quit_rect.top <= event.pos[1] <= quit_rect.bottom:
+                    terminate()
+        pg.display.flip()
+        clock.tick(FPS)
 
 
 class Tile(pg.sprite.Sprite):
@@ -107,7 +161,7 @@ class BaseTank(AnimatedSprite):
         super().__init__(tile_width * pos_x + 1, tile_height * pos_y + 1,
                          sheet, columns, rows, framerate, top_layer_group, *aux_groups)
         self.direction = NORTH
-        self.cooldown_duration = 750
+        self.cooldown_duration = 500
         self.cooldown_start = -self.cooldown_duration
 
     def shoot(self):
@@ -294,89 +348,89 @@ def generate_level(level):
     return new_player, x, y, spawn_point
 
 
-pg.display.set_caption("Танчики")
+if __name__ == "__main__":
+    main_menu()
 
-enemy_count = 20
-enemy_respawn_time = 3100
-enemy_spawn_points = list()
-enemy_spawn_iteration = 0
-ENEMY_RESPAWN = pg.USEREVENT + 1
-enemy_respawn = pg.event.Event(ENEMY_RESPAWN)
-ENEMY_EFFECT_SPAWN = pg.USEREVENT + 2
-enemy_effect_spawn = pg.event.Event(ENEMY_EFFECT_SPAWN)
-PLAYER_RESPAWN = pg.USEREVENT + 3
-player_respawn = pg.event.Event(PLAYER_RESPAWN)
-GAME_OVER = pg.USEREVENT + 4
-game_over = pg.event.Event(GAME_OVER)
-player_lives = 3
-enemies_killed = 0
+    enemy_count = 20
+    enemy_respawn_time = 3100
+    enemy_spawn_points = list()
+    enemy_spawn_iteration = 0
+    ENEMY_RESPAWN = pg.USEREVENT + 1
+    enemy_respawn = pg.event.Event(ENEMY_RESPAWN)
+    ENEMY_EFFECT_SPAWN = pg.USEREVENT + 2
+    enemy_effect_spawn = pg.event.Event(ENEMY_EFFECT_SPAWN)
+    PLAYER_RESPAWN = pg.USEREVENT + 3
+    player_respawn = pg.event.Event(PLAYER_RESPAWN)
+    GAME_OVER = pg.USEREVENT + 4
+    game_over = pg.event.Event(GAME_OVER)
+    player_lives = 3
+    enemies_killed = 0
 
-tile_images = {
-    'bricks': load_image('bricks.png'),
-    'block': load_image('block.png'),
-    'empty': load_image('ground.png')}
-player_sheet = load_image('player_tank.png')
-enemy_sheet = load_image('enemy_tank.png')
-explosion_sheet = load_image('explosion.png')
-small_explosion_sheet = load_image('small_explosion.png')
-spawning_eff_sheet = load_image('spawning_effect.png')
-bullet_image = load_image('bullet.png')
-tile_width = tile_height = 32
+    tile_images = {
+        'bricks': load_image('bricks.png'),
+        'block': load_image('block.png'),
+        'empty': load_image('ground.png')}
+    player_sheet = load_image('player_tank.png')
+    enemy_sheet = load_image('enemy_tank.png')
+    explosion_sheet = load_image('explosion.png')
+    small_explosion_sheet = load_image('small_explosion.png')
+    spawning_eff_sheet = load_image('spawning_effect.png')
+    bullet_image = load_image('bullet.png')
+    tile_width = tile_height = 32
 
-all_sprites = pg.sprite.Group()
-top_layer_group = pg.sprite.Group()
-tiles_group = pg.sprite.Group()
-collidable_group = pg.sprite.Group()
-breakable_group = pg.sprite.Group()
-bullet_group = pg.sprite.Group()
-effects_group = pg.sprite.Group()
-player_team = pg.sprite.Group()
-enemy_team = pg.sprite.Group()
-player, level_x, level_y, spawn_point = generate_level(load_level('map0.txt'))
+    all_sprites = pg.sprite.Group()
+    top_layer_group = pg.sprite.Group()
+    tiles_group = pg.sprite.Group()
+    collidable_group = pg.sprite.Group()
+    breakable_group = pg.sprite.Group()
+    bullet_group = pg.sprite.Group()
+    effects_group = pg.sprite.Group()
+    player_team = pg.sprite.Group()
+    enemy_team = pg.sprite.Group()
+    player, level_x, level_y, spawn_point = generate_level(load_level('map0.txt'))
 
-aggressive_mode_check = collidable_group.copy()
-aggressive_mode_check.add(player)
-# camera = Camera((level_x, level_y))
-clock = pg.time.Clock()
-pg.time.set_timer(ENEMY_EFFECT_SPAWN, enemy_respawn_time, enemy_count)
-running = True
-while running:
-    for event in pg.event.get():
-        if event.type == pg.QUIT:
-            running = False
-        if event.type == pg.KEYDOWN:
-            if event.key == pg.K_ESCAPE:
-                terminate()
+    aggressive_mode_check = collidable_group.copy()
+    aggressive_mode_check.add(player)
+    # camera = Camera((level_x, level_y))
+    pg.time.set_timer(ENEMY_EFFECT_SPAWN, enemy_respawn_time, enemy_count)
+    running = True
+    while running:
+        for event in pg.event.get():
+            if event.type == pg.QUIT:
+                running = False
+            if event.type == pg.KEYDOWN:
+                if event.key == pg.K_ESCAPE:
+                    terminate()
 
-            if event.key == pg.K_w:
-                player.update(0, -1, NORTH)
-            if event.key == pg.K_d:
-                player.update(1, 0, EAST)
-            if event.key == pg.K_s:
-                player.update(0, 1, SOUTH)
-            if event.key == pg.K_a:
-                player.update(-1, 0, WEST)
+                if event.key == pg.K_w:
+                    player.update(0, -1, NORTH)
+                if event.key == pg.K_d:
+                    player.update(1, 0, EAST)
+                if event.key == pg.K_s:
+                    player.update(0, 1, SOUTH)
+                if event.key == pg.K_a:
+                    player.update(-1, 0, WEST)
 
-            if event.key == pg.K_e:
-                player.shoot()
-        if event.type == PLAYER_RESPAWN:
-            player.respawn()
-        if event.type == ENEMY_EFFECT_SPAWN:
-            SpawningEffect(tuple(map(lambda a: a * tile_width + 1, enemy_spawn_points[enemy_spawn_iteration %
-                                                                                      len(enemy_spawn_points)])), 1000)
-            pg.time.set_timer(ENEMY_RESPAWN, 1000, True)
-        if event.type == ENEMY_RESPAWN:
-            pos = enemy_spawn_points[enemy_spawn_iteration % len(enemy_spawn_points)]
-            Enemy(pos[0], pos[1])
-            enemy_spawn_iteration += 1
-    screen.fill('black')
-    # camera.update(player)
-    # for sprite in all_sprites:
-    #     camera.apply(sprite)
-    bullet_group.update()
-    effects_group.update()
-    tiles_group.draw(screen)
-    enemy_team.update()
-    top_layer_group.draw(screen)
-    pg.display.flip()
-    clock.tick(FPS)
+                if event.key == pg.K_e:
+                    player.shoot()
+            if event.type == PLAYER_RESPAWN:
+                player.respawn()
+            if event.type == ENEMY_EFFECT_SPAWN:
+                SpawningEffect(tuple(map(lambda a: a * tile_width + 1, enemy_spawn_points[enemy_spawn_iteration %
+                                                                                          len(enemy_spawn_points)])), 1000)
+                pg.time.set_timer(ENEMY_RESPAWN, 1000, True)
+            if event.type == ENEMY_RESPAWN:
+                pos = enemy_spawn_points[enemy_spawn_iteration % len(enemy_spawn_points)]
+                Enemy(pos[0], pos[1])
+                enemy_spawn_iteration += 1
+        screen.fill('black')
+        # camera.update(player)
+        # for sprite in all_sprites:
+        #     camera.apply(sprite)
+        bullet_group.update()
+        effects_group.update()
+        tiles_group.draw(screen)
+        enemy_team.update()
+        top_layer_group.draw(screen)
+        pg.display.flip()
+        clock.tick(FPS)
