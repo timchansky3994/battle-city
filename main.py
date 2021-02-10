@@ -166,7 +166,7 @@ class Tile(pg.sprite.Sprite):
 
 
 class Bullet(pg.sprite.Sprite):
-    def __init__(self, center_x, center_y, owner_name, direction, velocity=5):
+    def __init__(self, center_x, center_y, owner_name, direction, velocity=3):
         super().__init__(top_layer_group, bullet_group,  all_sprites)
         self.velocity = velocity
         self.direction = direction
@@ -248,7 +248,6 @@ class BaseTank(AnimatedSprite):
 class Player(BaseTank):
     def __init__(self, pos_x, pos_y):
         super().__init__(pos_x, pos_y, player_sheet, 11, 1, 10, player_team)
-        self.spawning_effect = None
 
     def update(self, dx, dy, direction):
         super().update()
@@ -263,15 +262,13 @@ class Player(BaseTank):
         global player_lives
         player_lives -= 1
         if player_lives > 0:
-            self.spawning_effect = SpawningEffect(tuple(map(lambda a: a * tile_width + 1, spawn_point)), 5000)
-            pg.time.set_timer(PLAYER_RESPAWN, 5000, True)
+            pg.event.post(player_effect_spawn)
         else:
-            pg.event.post(game_over)
+            pg.time.set_timer(GAME_OVER, 1000, True)
 
     def respawn(self):
         self.rect.x, self.rect.y = map(lambda a: a * tile_width + 1, spawn_point)
         self.direction = NORTH
-        self.spawning_effect.kill()
         self.add(all_sprites, top_layer_group, player_team)
 
 
@@ -289,7 +286,7 @@ class Enemy(BaseTank):
             for i in range(0, 4):
                 ray = Ray(self.rect.center, self.rect.width, 5 * tile_width, (self.direction + i) % 4)
                 if pg.sprite.spritecollideany(ray, aggressive_mode_check):
-                    if pg.sprite.spritecollide(ray, aggressive_mode_check, False)[0] == player:
+                    if pg.sprite.spritecollide(ray, aggressive_mode_check, False)[0] == player and player.alive():
                         if random.random() < 0.75 / FPS:  # если нашли то с шансом 75% в сек движемся к игроку 3 секунды
                             self.direction = (self.direction + i) % 4
                             self.dir_lock_start = pg.time.get_ticks()
@@ -399,9 +396,11 @@ if __name__ == "__main__":
     enemy_respawn = pg.event.Event(ENEMY_RESPAWN)
     ENEMY_EFFECT_SPAWN = pg.USEREVENT + 2
     enemy_effect_spawn = pg.event.Event(ENEMY_EFFECT_SPAWN)
-    PLAYER_RESPAWN = pg.USEREVENT + 3
+    PLAYER_EFFECT_SPAWN = pg.USEREVENT + 3
+    player_effect_spawn = pg.event.Event(PLAYER_EFFECT_SPAWN)
+    PLAYER_RESPAWN = pg.USEREVENT + 4
     player_respawn = pg.event.Event(PLAYER_RESPAWN)
-    GAME_OVER = pg.USEREVENT + 4
+    GAME_OVER = pg.USEREVENT + 5
     game_over = pg.event.Event(GAME_OVER)
     player_lives = 3
     enemies_killed = 0
@@ -452,12 +451,25 @@ if __name__ == "__main__":
 
                 if event.key == pg.K_e:
                     player.shoot()
+            if event.type == PLAYER_EFFECT_SPAWN:
+                eff = SpawningEffect(tuple(map(lambda a: a * tile_width + 1, spawn_point)), 5000)
+                if not(pg.sprite.spritecollideany(eff, enemy_team) or
+                       len(pg.sprite.spritecollide(eff, collidable_group, False)) > 1):
+                    pg.time.set_timer(PLAYER_RESPAWN, 5000, True)
+                else:
+                    eff.kill()
+                    pg.time.set_timer(PLAYER_EFFECT_SPAWN, 250, True)
             if event.type == PLAYER_RESPAWN:
                 player.respawn()
             if event.type == ENEMY_EFFECT_SPAWN:
-                SpawningEffect(tuple(map(lambda a: a * tile_width + 1, enemy_spawn_points[enemy_spawn_iteration %
-                                                                                          len(enemy_spawn_points)])), 1000)
-                pg.time.set_timer(ENEMY_RESPAWN, 1000, True)
+                eff = SpawningEffect(tuple(map(lambda a: a * tile_width + 1,
+                                               enemy_spawn_points[enemy_spawn_iteration %
+                                                                  len(enemy_spawn_points)])), 1000)
+                if not(pg.sprite.spritecollideany(eff, enemy_team) or pg.sprite.spritecollideany(eff, player_team) or
+                       len(pg.sprite.spritecollide(eff, collidable_group, False)) > 1):
+                    pg.time.set_timer(ENEMY_RESPAWN, 1000, True)
+                else:
+                    eff.kill()
             if event.type == ENEMY_RESPAWN:
                 pos = enemy_spawn_points[enemy_spawn_iteration % len(enemy_spawn_points)]
                 Enemy(pos[0], pos[1])
