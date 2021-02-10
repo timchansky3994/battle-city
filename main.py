@@ -1,6 +1,7 @@
 import sys
 import os
 import random
+import json
 import pygame as pg
 from math import sin, cos, radians
 
@@ -45,9 +46,9 @@ def main_menu():
                   "Управление",
                   "Выйти"]
 
-    print(pg.font.get_fonts())
-    logo_font = pg.font.Font("data/docktrin.ttf", 89)
-    text_font = pg.font.Font("data/rockwellnova.ttf", 36)
+    screen.fill('black')
+    logo_font = pg.font.Font("data/fonts/docktrin.ttf", 89)
+    text_font = pg.font.Font("data/fonts/rockwellnova.ttf", 36)
 
     logo = logo_font.render(intro_text[0], True, pg.Color('white'))
     logo_rect = logo.get_rect()
@@ -55,24 +56,25 @@ def main_menu():
     logo_rect.center = WIDTH // 2, logo_rect.center[1]
     screen.blit(logo, logo_rect)
 
-    start_game = text_font.render(intro_text[1], True, pg.Color('white'))
+    start_game = text_font.render(intro_text[1], True, pg.Color('white'), (30, 30, 30))
     start_game_rect = start_game.get_rect()
     start_game_rect.top = logo_rect.bottom + 25
     start_game_rect.center = WIDTH // 2, start_game_rect.center[1]
     screen.blit(start_game, start_game_rect)
 
-    options = text_font.render(intro_text[2], True, pg.Color('white'))
+    options = text_font.render(intro_text[2], True, pg.Color('white'), (30, 30, 30))
     options_rect = options.get_rect()
     options_rect.top = start_game_rect.bottom + 15
     options_rect.center = WIDTH // 2, options_rect.center[1]
     screen.blit(options, options_rect)
 
-    quit_btn = text_font.render(intro_text[3], True, pg.Color('white'))
+    quit_btn = text_font.render(intro_text[3], True, pg.Color('white'), (30, 30, 30))
     quit_rect = quit_btn.get_rect()
     quit_rect.top = options_rect.bottom + 15
     quit_rect.center = WIDTH // 2, quit_rect.center[1]
     screen.blit(quit_btn, quit_rect)
 
+    options_clicked = True
     while True:
         for event in pg.event.get():
             if event.type == pg.QUIT:
@@ -80,15 +82,76 @@ def main_menu():
             if event.type == pg.MOUSEBUTTONDOWN:
                 if start_game_rect.left <= event.pos[0] <= start_game_rect.right and \
                         start_game_rect.top <= event.pos[1] <= start_game_rect.bottom:
-                    return
+                    return  # <-- временно
                 if options_rect.left <= event.pos[0] <= options_rect.right and \
                         options_rect.top <= event.pos[1] <= options_rect.bottom:
-                    pass
+                    options_clicked = True
+                    break
                 if quit_rect.left <= event.pos[0] <= quit_rect.right and \
                         quit_rect.top <= event.pos[1] <= quit_rect.bottom:
                     terminate()
         pg.display.flip()
         clock.tick(FPS)
+    if options_clicked:
+        options_menu()
+
+
+def options_menu():
+    options = ["Вверх",
+               "Вниз",
+               "Влево",
+               "Вправо",
+               "Выстрелить"]
+    options_names = ["up",
+                     "down",
+                     "left",
+                     "right",
+                     "shoot"]
+
+    screen.fill('black')
+    text_font = pg.font.Font("data/fonts/rockwellnova.ttf", 36)
+
+    title = text_font.render("Управление", True, pg.Color('white'))
+    title_rect = title.get_rect()
+    title_rect.top = 10
+    title_rect.center = WIDTH // 2, title_rect.center[1]
+    screen.blit(title, title_rect)
+
+    back_btn = text_font.render("< Назад", True, pg.Color('white'), (30, 30, 30))
+    back_btn_rect = title.get_rect()
+    back_btn_rect.top, back_btn_rect.left = 10, 10
+    screen.blit(back_btn, back_btn_rect)
+
+    for i, line in enumerate(options):
+        rendered = text_font.render(line, True, pg.Color('white'))
+        rendered_rect = rendered.get_rect()
+        rendered_rect.right = WIDTH // 2 - 30
+        rendered_rect.center = rendered_rect.center[0], (HEIGHT - title_rect.bottom) // (len(options) + 1) * \
+            (i + 1) + title_rect.bottom
+
+        screen.blit(rendered, rendered_rect)
+
+    back_btn_pressed = False
+    while True:
+        for event in pg.event.get():
+            if event.type == pg.QUIT:
+                terminate()
+            if event.type == pg.MOUSEBUTTONDOWN:
+                if back_btn_rect.left <= event.pos[0] <= back_btn_rect.right and \
+                        back_btn_rect.top <= event.pos[1] <= back_btn_rect.bottom:
+                    back_btn_pressed = True
+                    break
+        pg.display.flip()
+        clock.tick(FPS)
+    if back_btn_pressed:
+        main_menu()
+
+
+class OptionsClickArea(pg.rect.Rect):
+    def __init__(self, top, left, width, height, color, name):
+        super().__init__(top, left, width, height)
+        self.color = color
+        self.name = name
 
 
 class Tile(pg.sprite.Sprite):
@@ -297,29 +360,6 @@ class SpawningEffect(AnimatedSprite):
             self.kill()
 
 
-# class Camera:
-#     def __init__(self, field_size):
-#         self.dx = 0
-#         self.dy = 0
-#         self.field_size = field_size
-#
-#     def apply(self, obj):
-#         obj.rect.x += self.dx
-#         obj.rect.y += self.dy
-#         if obj.rect.x >= self.field_size[0] * obj.rect.width:
-#             obj.rect.x += -obj.rect.width * (1 + self.field_size[0])
-#         if obj.rect.y >= self.field_size[1] * obj.rect.width:
-#             obj.rect.y += -obj.rect.width * (1 + self.field_size[0])
-#         if obj.rect.x <= -obj.rect.width:
-#             obj.rect.x += obj.rect.width * (1 + self.field_size[0])
-#         if obj.rect.y <= -obj.rect.width:
-#             obj.rect.y += obj.rect.width * (1 + self.field_size[0])
-#
-#     def update(self, target):
-#         self.dx = -(target.rect.x + target.rect.w // 2 - WIDTH // 2)
-#         self.dy = -(target.rect.y + target.rect.h // 2 - HEIGHT // 2)
-
-
 def load_level(filename):
     filename = "data/" + filename
     with open(filename, 'r') as mapFile:
@@ -391,13 +431,12 @@ if __name__ == "__main__":
 
     aggressive_mode_check = collidable_group.copy()
     aggressive_mode_check.add(player)
-    # camera = Camera((level_x, level_y))
     pg.time.set_timer(ENEMY_EFFECT_SPAWN, enemy_respawn_time, enemy_count)
     running = True
     while running:
         for event in pg.event.get():
             if event.type == pg.QUIT:
-                running = False
+                terminate()
             if event.type == pg.KEYDOWN:
                 if event.key == pg.K_ESCAPE:
                     terminate()
@@ -424,9 +463,6 @@ if __name__ == "__main__":
                 Enemy(pos[0], pos[1])
                 enemy_spawn_iteration += 1
         screen.fill('black')
-        # camera.update(player)
-        # for sprite in all_sprites:
-        #     camera.apply(sprite)
         bullet_group.update()
         effects_group.update()
         tiles_group.draw(screen)
