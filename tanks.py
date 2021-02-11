@@ -50,12 +50,7 @@ class Player(BaseTank):
 
     def kill(self):
         super().kill()
-        global player_lives
-        player_lives -= 1
-        if player_lives > 0:
-            pg.event.post(player_effect_spawn)
-        else:
-            pg.time.set_timer(GAME_OVER, 1000, True)
+        pg.event.post(player_killed)
 
     def respawn(self):
         self.rect.x, self.rect.y = map(lambda a: a * tile_width + 1, self.spawn_point)
@@ -103,6 +98,10 @@ class Enemy(BaseTank):
                 self.image = pg.transform.rotate(self.frames[self.cur_frame], -90 * self.direction)
         if random.random() < self.shoot_chance / FPS:  # с шансом 50% каждую секунду стреляет
             self.shoot()
+
+    def kill(self):
+        super().kill()
+        pg.event.post(enemy_killed)
 
 
 class Ray(pg.sprite.Sprite):

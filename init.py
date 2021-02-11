@@ -20,7 +20,7 @@ def load_image(name, colorkey=None):
     return image
 
 
-size = WIDTH, HEIGHT = 800, 600
+size = WIDTH, HEIGHT = 608, 416
 NORTH, EAST, SOUTH, WEST = 0, 1, 2, 3
 FPS = 60
 explosion_sound = pg.mixer.Sound("data/sounds/explosion.mp3")
@@ -28,7 +28,7 @@ breaking_sound = pg.mixer.Sound("data/sounds/break.mp3")
 shooting_sound = pg.mixer.Sound("data/sounds/shoot.mp3")
 bump_sound = pg.mixer.Sound("data/sounds/bump.mp3")
 
-enemy_count = 20
+enemy_count = 1
 enemy_respawn_time = 3100
 enemy_spawn_points = list()
 enemy_spawn_iteration = 0
@@ -42,8 +42,10 @@ PLAYER_RESPAWN = pg.USEREVENT + 4
 player_respawn = pg.event.Event(PLAYER_RESPAWN)
 GAME_OVER = pg.USEREVENT + 5
 game_over = pg.event.Event(GAME_OVER)
-player_lives = 3
-enemies_killed = 0
+PLAYER_KILLED = pg.USEREVENT + 6
+player_killed = pg.event.Event(PLAYER_KILLED)
+ENEMY_KILLED = pg.USEREVENT + 7
+enemy_killed = pg.event.Event(ENEMY_KILLED)
 
 tile_images = {
     'bricks': load_image('bricks.png'),

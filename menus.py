@@ -40,7 +40,8 @@ def main_menu():
     screen.blit(quit_btn, quit_rect)
 
     options_clicked = True
-    while True:
+    running = True
+    while running:
         for event in pg.event.get():
             if event.type == pg.QUIT:
                 terminate()
@@ -51,6 +52,7 @@ def main_menu():
                 if options_rect.left <= event.pos[0] <= options_rect.right and \
                         options_rect.top <= event.pos[1] <= options_rect.bottom:
                     options_clicked = True
+                    running = False
                     break
                 if quit_rect.left <= event.pos[0] <= quit_rect.right and \
                         quit_rect.top <= event.pos[1] <= quit_rect.bottom:
@@ -102,7 +104,7 @@ def options_menu():
         name_rect = name.get_rect()
         name_rect.right = WIDTH // 2 - 30
         name_rect.center = name_rect.center[0], (save_btn_rect.top - title_rect.bottom) // \
-                           (len(options) + 1) * (i + 1) + title_rect.bottom
+            (len(options) + 1) * (i + 1) + title_rect.bottom
         screen.blit(name, name_rect)
 
         click_areas.append(pg.rect.Rect(WIDTH // 2 + 30, name_rect.top, WIDTH // 2 - 60, name_rect.height))
@@ -114,7 +116,8 @@ def options_menu():
 
     back_btn_pressed = False
     set_binding = None
-    while True:
+    running = True
+    while running:
         for event in pg.event.get():
             if event.type == pg.QUIT:
                 terminate()
@@ -122,6 +125,7 @@ def options_menu():
                 if back_btn_rect.left <= event.pos[0] <= back_btn_rect.right and \
                         back_btn_rect.top <= event.pos[1] <= back_btn_rect.bottom:
                     back_btn_pressed = True
+                    running = False
                     break
                 else:
                     for i, area in enumerate(click_areas):
@@ -138,6 +142,68 @@ def options_menu():
                 binding_rect = binding.get_rect()
                 binding_rect.left, binding_rect.top = click_areas[set_binding].left, click_areas[set_binding].top
                 screen.blit(binding, binding_rect)
+        pg.display.flip()
+        clock.tick(FPS)
+    if back_btn_pressed:
+        main_menu()
+
+
+def game_over_screen(amount_killed, lives_left, time):
+    background = pg.transform.scale(load_image('background.jpg'), (WIDTH, HEIGHT))
+    screen.blit(background, (0, 0))
+    title_font = pg.font.Font("data/fonts/docktrin.ttf", 56)
+    text_font = pg.font.Font("data/fonts/rockwellnova.ttf", 24)
+    
+    title = title_font.render("Game Over", True, pg.Color('white'))
+    title_rect = title.get_rect()
+    title_rect.top = 10
+    title_rect.center = WIDTH // 2, title_rect.center[1]
+    screen.blit(title, title_rect)
+
+    back_btn = text_font.render("В меню", True, pg.Color('white'), (30, 30, 30))
+    back_btn_rect = title.get_rect()
+    back_btn_rect.top, back_btn_rect.left = 10, 10
+    screen.blit(back_btn, back_btn_rect)
+
+    if not os.path.isfile("highscores.json"):
+        highscores = [0, 0]
+    else:
+        with open("highscores.json", 'r') as file:
+            highscores = json.load(file)
+    highscore = highscores[0]  # ПОМЕНЯЙ!!
+    kills_score, lives_score, time_score = amount_killed * 100, lives_left * 500, int((5 * 60000 - time) * 0.01)
+    if time_score < 0 or lives_left <= 0:
+        time_score = 0
+    lines = [f"Прошлый рекорд: {highscore}",
+             f"Очки за убийства: {kills_score}",
+             f"Очки за ост. жизни: {lives_score}",
+             f"Очки за время: {time_score}",
+             f"Всего: {kills_score + lives_score + time_score}"]
+    new_highscore = kills_score + lives_score + time_score
+    if new_highscore > highscore:
+        lines.append("Новый рекорд!")
+        highscores[0] = new_highscore  # ПОМЕНЯЙ!!
+        with open("highscores.json", 'w') as file:
+            json.dump(highscores, file)
+
+    for i, line in enumerate(lines):
+        name = text_font.render(line, True, pg.Color('white'))
+        name_rect = name.get_rect()
+        name_rect.center = WIDTH // 2, (HEIGHT - title_rect.bottom) // \
+            (len(lines) + 1) * (i + 1) + title_rect.bottom
+        screen.blit(name, name_rect)
+    back_btn_pressed = False
+    running = True
+    while running:
+        for event in pg.event.get():
+            if event.type == pg.QUIT:
+                terminate()
+            if event.type == pg.MOUSEBUTTONDOWN:
+                if back_btn_rect.left <= event.pos[0] <= back_btn_rect.right and \
+                        back_btn_rect.top <= event.pos[1] <= back_btn_rect.bottom:
+                    back_btn_pressed = True
+                    running = False
+                    break
         pg.display.flip()
         clock.tick(FPS)
     if back_btn_pressed:
