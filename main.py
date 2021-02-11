@@ -207,6 +207,10 @@ class Tile(pg.sprite.Sprite):
         self.image = tile_images[tile_type]
         self.rect = self.image.get_rect().move(tile_width * pos_x, tile_height * pos_y)
 
+    def kill(self):
+        super().kill()
+        breaking_sound.play()
+
 
 class Bullet(pg.sprite.Sprite):
     def __init__(self, center_x, center_y, owner_name, direction, velocity=3):
@@ -234,6 +238,7 @@ class Bullet(pg.sprite.Sprite):
             Tile('empty', killed.rect.x // tile_width, killed.rect.y // tile_height)
         elif pg.sprite.spritecollideany(self, collidable_group):
             self.kill()
+            bump_sound.play()
             SmallExplosion(self.rect.center)
 
 
@@ -279,12 +284,11 @@ class BaseTank(AnimatedSprite):
                        self.rect.y + self.rect.height // 2 * (1 + dir_y) + bullet_radius * dir_y,
                        self.__class__.__name__, self.direction)
                 self.cooldown_start = pg.time.get_ticks()
-
-    def set_cooldown(self, cooldown):
-        self.cooldown_duration = cooldown
+                shooting_sound.play()
 
     def kill(self):
         super().kill()
+        explosion_sound.play()
         Explosion(self.rect.center)
 
 
@@ -432,6 +436,12 @@ if __name__ == "__main__":
     if not os.path.isfile("options.json"):
         default_options()
     main_menu()
+
+    pg.mixer.init()
+    explosion_sound = pg.mixer.Sound("data/sounds/explosion.mp3")
+    breaking_sound = pg.mixer.Sound("data/sounds/break.mp3")
+    shooting_sound = pg.mixer.Sound("data/sounds/shoot.mp3")
+    bump_sound = pg.mixer.Sound("data/sounds/bump.mp3")
 
     with open("options.json", 'r') as options_file:
         options_dict = json.load(options_file)
