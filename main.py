@@ -46,7 +46,8 @@ def main_menu():
                   "Управление",
                   "Выйти"]
 
-    screen.fill('black')
+    background = pg.transform.scale(load_image('background.jpg'), (WIDTH, HEIGHT))
+    screen.blit(background, (0, 0))
     logo_font = pg.font.Font("data/fonts/docktrin.ttf", 89)
     text_font = pg.font.Font("data/fonts/rockwellnova.ttf", 36)
 
@@ -96,6 +97,16 @@ def main_menu():
         options_menu()
 
 
+def default_options():
+    options = {"up": pg.K_w,
+               "down": pg.K_s,
+               "left": pg.K_a,
+               "right": pg.K_d,
+               "shoot": pg.K_e}
+    with open("options.json", 'w') as file:
+        json.dump(options, file)
+
+
 def options_menu():
     options = ["Вверх",
                "Вниз",
@@ -108,7 +119,8 @@ def options_menu():
                      "right",
                      "shoot"]
 
-    screen.fill('black')
+    background = pg.transform.scale(load_image('background.jpg'), (WIDTH, HEIGHT))
+    screen.blit(background, (0, 0))
     text_font = pg.font.Font("data/fonts/rockwellnova.ttf", 36)
 
     title = text_font.render("Управление", True, pg.Color('white'))
@@ -122,16 +134,32 @@ def options_menu():
     back_btn_rect.top, back_btn_rect.left = 10, 10
     screen.blit(back_btn, back_btn_rect)
 
+    save_btn = text_font.render("Сохранить", True, pg.Color('white'), (30, 30, 30))
+    save_btn_rect = title.get_rect()
+    save_btn_rect.bottom = HEIGHT - 10
+    save_btn_rect.center = WIDTH // 2, save_btn_rect.center[1]
+    screen.blit(save_btn, save_btn_rect)
+    
+    click_areas = list()
+    with open("options.json", 'r') as opt_file:
+        bindings = json.load(opt_file)
     for i, line in enumerate(options):
-        rendered = text_font.render(line, True, pg.Color('white'))
-        rendered_rect = rendered.get_rect()
-        rendered_rect.right = WIDTH // 2 - 30
-        rendered_rect.center = rendered_rect.center[0], (HEIGHT - title_rect.bottom) // (len(options) + 1) * \
-            (i + 1) + title_rect.bottom
+        name = text_font.render(line, True, pg.Color('white'))
+        name_rect = name.get_rect()
+        name_rect.right = WIDTH // 2 - 30
+        name_rect.center = name_rect.center[0], (save_btn_rect.top - title_rect.bottom) // \
+            (len(options) + 1) * (i + 1) + title_rect.bottom
+        screen.blit(name, name_rect)
 
-        screen.blit(rendered, rendered_rect)
+        click_areas.append(pg.rect.Rect(WIDTH // 2 + 30, name_rect.top, WIDTH // 2 - 60, name_rect.height))
+        screen.fill((30, 30, 30), click_areas[i])
+        binding = text_font.render(pg.key.name(bindings[options_names[i]]), True, pg.Color('white'))
+        binding_rect = binding.get_rect()
+        binding_rect.left, binding_rect.top = click_areas[i].left, click_areas[i].top
+        screen.blit(binding, binding_rect)
 
     back_btn_pressed = False
+    set_binding = None
     while True:
         for event in pg.event.get():
             if event.type == pg.QUIT:
@@ -141,6 +169,21 @@ def options_menu():
                         back_btn_rect.top <= event.pos[1] <= back_btn_rect.bottom:
                     back_btn_pressed = True
                     break
+                else:
+                    for i, area in enumerate(click_areas):
+                        if area.left <= event.pos[0] <= area.right and area.top <= event.pos[1] <= area.bottom:
+                            set_binding = i
+                if save_btn_rect.left <= event.pos[0] <= save_btn_rect.right and \
+                        save_btn_rect.top <= event.pos[1] <= save_btn_rect.bottom:
+                    with open("options.json", 'w') as opt_file:
+                        json.dump(bindings, opt_file)
+            if set_binding is not None and event.type == pg.KEYDOWN:
+                bindings[options_names[set_binding]] = event.key
+                screen.fill((30, 30, 30), click_areas[set_binding])
+                binding = text_font.render(pg.key.name(bindings[options_names[set_binding]]), True, pg.Color('white'))
+                binding_rect = binding.get_rect()
+                binding_rect.left, binding_rect.top = click_areas[set_binding].left, click_areas[set_binding].top
+                screen.blit(binding, binding_rect)
         pg.display.flip()
         clock.tick(FPS)
     if back_btn_pressed:
@@ -386,8 +429,12 @@ def generate_level(level):
 
 
 if __name__ == "__main__":
+    if not os.path.isfile("options.json"):
+        default_options()
     main_menu()
 
+    with open("options.json", 'r') as options_file:
+        options_dict = json.load(options_file)
     enemy_count = 20
     enemy_respawn_time = 3100
     enemy_spawn_points = list()
@@ -440,16 +487,16 @@ if __name__ == "__main__":
                 if event.key == pg.K_ESCAPE:
                     terminate()
 
-                if event.key == pg.K_w:
+                if event.key == options_dict["up"]:
                     player.update(0, -1, NORTH)
-                if event.key == pg.K_d:
+                if event.key == options_dict["right"]:
                     player.update(1, 0, EAST)
-                if event.key == pg.K_s:
+                if event.key == options_dict["down"]:
                     player.update(0, 1, SOUTH)
-                if event.key == pg.K_a:
+                if event.key == options_dict["left"]:
                     player.update(-1, 0, WEST)
 
-                if event.key == pg.K_e:
+                if event.key == options_dict["shoot"]:
                     player.shoot()
             if event.type == PLAYER_EFFECT_SPAWN:
                 eff = SpawningEffect(tuple(map(lambda a: a * tile_width + 1, spawn_point)), 5000)
@@ -461,6 +508,7 @@ if __name__ == "__main__":
                     pg.time.set_timer(PLAYER_EFFECT_SPAWN, 250, True)
             if event.type == PLAYER_RESPAWN:
                 player.respawn()
+
             if event.type == ENEMY_EFFECT_SPAWN:
                 eff = SpawningEffect(tuple(map(lambda a: a * tile_width + 1,
                                                enemy_spawn_points[enemy_spawn_iteration %
