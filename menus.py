@@ -48,7 +48,8 @@ def main_menu():
             if event.type == pg.MOUSEBUTTONDOWN:
                 if start_game_rect.left <= event.pos[0] <= start_game_rect.right and \
                         start_game_rect.top <= event.pos[1] <= start_game_rect.bottom:
-                    return
+                    level =  level_select()
+                    return level
                 if options_rect.left <= event.pos[0] <= options_rect.right and \
                         options_rect.top <= event.pos[1] <= options_rect.bottom:
                     options_clicked = True
@@ -148,7 +149,7 @@ def options_menu():
         main_menu()
 
 
-def game_over_screen(amount_killed, lives_left, time):
+def game_over_screen(amount_killed, lives_left, time, level_number):
     background = pg.transform.scale(load_image('background.jpg'), (WIDTH, HEIGHT))
     screen.blit(background, (0, 0))
     title_font = pg.font.Font("data/fonts/docktrin.ttf", 56)
@@ -170,7 +171,7 @@ def game_over_screen(amount_killed, lives_left, time):
     else:
         with open("highscores.json", 'r') as file:
             highscores = json.load(file)
-    highscore = highscores[0]  # ПОМЕНЯЙ!!
+    highscore = highscores[level_number]
     kills_score, lives_score, time_score = amount_killed * 100, lives_left * 500, int((5 * 60000 - time) * 0.01)
     if time_score < 0 or lives_left <= 0:
         time_score = 0
@@ -182,7 +183,7 @@ def game_over_screen(amount_killed, lives_left, time):
     new_highscore = kills_score + lives_score + time_score
     if new_highscore > highscore:
         lines.append("Новый рекорд!")
-        highscores[0] = new_highscore  # ПОМЕНЯЙ!!
+        highscores[level_number] = new_highscore
         with open("highscores.json", 'w') as file:
             json.dump(highscores, file)
 
@@ -204,6 +205,61 @@ def game_over_screen(amount_killed, lives_left, time):
                     back_btn_pressed = True
                     running = False
                     break
+        pg.display.flip()
+        clock.tick(FPS)
+    if back_btn_pressed:
+        main_menu()
+
+
+def level_select():
+    background = pg.transform.scale(load_image('background.jpg'), (WIDTH, HEIGHT))
+    screen.blit(background, (0, 0))
+    title_font = pg.font.Font("data/fonts/docktrin.ttf", 48)
+    text_font = pg.font.Font("data/fonts/rockwellnova.ttf", 36)
+    
+    title = title_font.render("level select", True, pg.Color('white'))
+    title_rect = title.get_rect()
+    title_rect.top = 10
+    title_rect.center = WIDTH // 2, title_rect.center[1]
+    screen.blit(title, title_rect)
+    
+    back_btn = text_font.render("< Назад", True, pg.Color('white'), (30, 30, 30))
+    back_btn_rect = title.get_rect()
+    back_btn_rect.top, back_btn_rect.left = 10, 10
+    screen.blit(back_btn, back_btn_rect)
+    
+    btn1 = pg.Rect(75, title_rect.bottom + 15, 100, 100)
+    screen.fill((30, 30, 30), btn1)
+    btn1_text = text_font.render("1", True, pg.Color('white'))
+    btn1_rect = btn1_text.get_rect()
+    btn1_rect.center = btn1.center
+    screen.blit(btn1_text, btn1_rect)
+    btn2 = pg.Rect(75, title_rect.bottom + 15, 100, 100)
+    btn2.right = WIDTH - 75
+    screen.fill((30, 30, 30), btn2)
+    btn2_text = text_font.render("2", True, pg.Color('white'))
+    btn2_rect = btn2_text.get_rect()
+    btn2_rect.center = btn2.center
+    screen.blit(btn2_text, btn2_rect)
+    
+    back_btn_pressed = False
+    running = True
+    while running:
+        for event in pg.event.get():
+            if event.type == pg.QUIT:
+                terminate()
+            if event.type == pg.MOUSEBUTTONDOWN:
+                if back_btn_rect.left <= event.pos[0] <= back_btn_rect.right and \
+                        back_btn_rect.top <= event.pos[1] <= back_btn_rect.bottom:
+                    back_btn_pressed = True
+                    running = False
+                    break
+                if btn1.left <= event.pos[0] <= btn1.right and \
+                        btn1.top <= event.pos[1] <= btn1.bottom:
+                    return 0
+                if btn2.left <= event.pos[0] <= btn2.right and \
+                        btn2.top <= event.pos[1] <= btn2.bottom:
+                    return 1
         pg.display.flip()
         clock.tick(FPS)
     if back_btn_pressed:

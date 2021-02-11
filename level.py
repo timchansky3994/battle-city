@@ -5,7 +5,7 @@ from tanks import Player
 
 
 def load_level(filename):
-    filename = "data/" + filename
+    filename = "data/maps/" + filename
     with open(filename, 'r') as mapFile:
         level_map = [line.strip() for line in mapFile]
     max_width = max(map(len, level_map))

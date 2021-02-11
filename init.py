@@ -5,7 +5,7 @@ import sys
 
 
 def load_image(name, colorkey=None):
-    fullname = os.path.join('data', name)
+    fullname = os.path.join('data/textures', name)
     if not os.path.isfile(fullname):
         print(f"Файл с изображением '{fullname}' не найден")
         sys.exit()
@@ -28,7 +28,7 @@ breaking_sound = pg.mixer.Sound("data/sounds/break.mp3")
 shooting_sound = pg.mixer.Sound("data/sounds/shoot.mp3")
 bump_sound = pg.mixer.Sound("data/sounds/bump.mp3")
 
-enemy_count = 1
+enemy_count = 20
 enemy_respawn_time = 3100
 enemy_spawn_points = list()
 enemy_spawn_iteration = 0
@@ -58,6 +58,7 @@ small_explosion_sheet = load_image('small_explosion.png')
 spawning_eff_sheet = load_image('spawning_effect.png')
 bullet_image = load_image('bullet.png')
 tile_width = tile_height = 32
+level_amount = 2
 
 all_sprites = pg.sprite.Group()
 top_layer_group = pg.sprite.Group()

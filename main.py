@@ -33,12 +33,11 @@ def default_options():
 if __name__ == "__main__":
     if not os.path.isfile("options.json"):
         default_options()
-    main_menu()
+    level_number = main_menu()
     with open("options.json", 'r') as options_file:
         options_dict = json.load(options_file)
 
-    player, level_x, level_y, spawn_point = generate_level(load_level('map_0.txt'))
-
+    player, level_x, level_y, spawn_point = generate_level(load_level('map_' + str(level_number) + '.txt'))
     aggressive_mode_check = collidable_group.copy()
     aggressive_mode_check.add(player)
     pg.time.set_timer(ENEMY_EFFECT_SPAWN, enemy_respawn_time, enemy_count)
@@ -115,4 +114,4 @@ if __name__ == "__main__":
         pg.display.flip()
         clock.tick(FPS)
     if game_over_flag:
-        game_over_screen(enemies_killed, player_lives, pg.time.get_ticks())
+        game_over_screen(enemies_killed, player_lives, pg.time.get_ticks(), level_number)
