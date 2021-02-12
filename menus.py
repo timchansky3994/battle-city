@@ -3,6 +3,8 @@ from main import screen, clock, terminate
 import json
 # модуль с меню
 
+level_number = None
+
 
 def main_menu():
     intro_text = ["BATTLE CITY",
@@ -48,8 +50,9 @@ def main_menu():
             if event.type == pg.MOUSEBUTTONDOWN:
                 if start_game_rect.left <= event.pos[0] <= start_game_rect.right and \
                         start_game_rect.top <= event.pos[1] <= start_game_rect.bottom:
-                    level =  level_select()
-                    return level
+                    global level_number
+                    level_number = level_select()
+                    return
                 if options_rect.left <= event.pos[0] <= options_rect.right and \
                         options_rect.top <= event.pos[1] <= options_rect.bottom:
                     options_clicked = True

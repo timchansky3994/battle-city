@@ -33,7 +33,8 @@ def default_options():
 if __name__ == "__main__":
     if not os.path.isfile("options.json"):
         default_options()
-    level_number = main_menu()
+    main_menu()
+    from menus import level_number
     with open("options.json", 'r') as options_file:
         options_dict = json.load(options_file)
 
